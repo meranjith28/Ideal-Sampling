@@ -1,66 +1,250 @@
-# Huffman-Shannon_fano
-## Aim:
-Consider a discrete memoryless source with symbols and statistics {0.125, 0.0625, 0.25, 0.0625, 0.125, 0.125, 0.25} for its output. 
-Apply the Huffman and Shannon-Fano to this source. 
-Show that by drawing the tree diagram, and 
-Calculate the average code word length, entropy, variance, redundancy, and efficiency.
-
-## Software Required
+# Ideal, Natural, & Flat-top -Sampling
+# Aim
+Write a simple Python program for the construction and reconstruction of ideal, natural, and flattop sampling.
+# Tools required
 Google colab
+# Theory
+### Ideal sampling
+Ideal sampling is a theoretical concept in which the continuous-time signal is sampled using a train of impulses (delta functions).
 
-## Theory
-Huffman coding is an optimal lossless compression algorithm that constructs codes based on symbol probabilities using a binary tree. It is widely used in digital communication systems for efficient data transmission.
+Characteristics
 
-Shannon–Fano coding is a lossless data compression technique used in digital communication to reduce the number of bits required to represent data. It assigns shorter codes to symbols with higher probability and longer codes to symbols with lower probability.
+Each sample has zero width and infinite height
 
-## Program:
+Sampling is done at exact instants
+
+No distortion is introduced during sampling
+
+Practically not realizable
+### Natural sampling
+In natural sampling, the signal is sampled by multiplying it with a train of rectangular pulses having finite width.
+
+Characteristics
+
+Pulse width is small but non-zero
+
+The top of the pulse follows the shape of the input signal
+
+More practical than ideal sampling
+### Flat-top sampling
+Flat-top sampling is a practical sampling technique where the signal is sampled and held constant for a fixed duration.
+
+Characteristics
+
+Each sample has a constant amplitude during the pulse width
+
+Implemented using a Sample-and-Hold (S/H) circuit
+
+Most commonly used in practical systems
+# Program
+### Ideal sampling
 ```
-#Huffman and Shannon-Fano coding
+#Ideal Sampling
+
 import numpy as np
-import math 
-L  = 0
-hs = 0
-p = []
-lk = []
-n = int(input("Enter the number of Samples : "))
-for i in range (n): 
-    pr = float(input(f"Enter the probability of sample values {i + 1}: "))  
-    p.append(pr)
-for j in range (n): 
-    l = float(input(f"Enter the length of the sample values {j + 1}: "))  
-    lk.append(l)
-# Avg length of the code word
-for k in range (n):
-    Avg1 = p[k] * lk[k]
-    L = L + Avg1
-# Entropy
-for k in range (n):
-    e = p[k] * math.log(1 / p[k], 2)
-    hs = hs + e
-hs = round(hs,3)
-# Efficiency
-eff =  hs / L
-eff = round(eff,3)
-# Redundancy 
-red =  round(1 - eff,3) 
-# Variance
-var = 0
-for k in range(n):
-    var1 = p[k] * (lk[k]-L)**2
-    var = var + var1
-var = round(var,3)
-print(f"Average Codeword Length is : {L}")
-print(f"Entropy is : {hs}")
-print(f"Efficiency is : {eff}")
-print(f"Redudancy is : {red}")
-print(f"Variance is : {var}")
+import matplotlib.pyplot as plt
+from scipy.signal import resample
+
+fs = 100
+t = np.arange(0, 1, 1/fs) 
+f = 5
+signal = np.sin(2 * np.pi * f * t)
+
+plt.figure(figsize=(10, 4))
+plt.plot(t, signal, label='Continuous Signal')
+plt.title('Continuous Signal (fs = 100 Hz)')
+plt.xlabel('Time [s]')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.legend()
+plt.show()
+
+t_sampled = np.arange(0, 1, 1/fs)
+signal_sampled = np.sin(2 * np.pi * f * t_sampled)
+
+plt.figure(figsize=(10, 4))
+plt.stem(t_sampled, signal_sampled, linefmt='r-', markerfmt='ro', basefmt='r-', label='Sampled Signal (fs = 100 Hz)')
+plt.title('Sampling of Continuous Signal (fs = 100 Hz)')
+plt.xlabel('Time [s]')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.legend()
+plt.show()
+
+reconstructed_signal = resample(signal_sampled, len(t))
+
+plt.figure(figsize=(10, 4))
+plt.plot(t, reconstructed_signal, 'r--', label='Reconstructed Signal (fs = 100 Hz)')
+plt.title('Reconstruction of Sampled Signal (fs = 100 Hz)')
+plt.xlabel('Time [s]')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.legend()
+plt.show()
 ```
-## Calculation:
+### Natural samplying
+```
+# Natural sampling
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import butter, lfilter
+
+# Parameters
+fs = 1000  # Sampling frequency (samples per second)
+T = 1      # Duration in seconds
+t = np.arange(0, T, 1/fs)  # Time vector
+
+# Message Signal (sine wave message)
+fm = 5  # Frequency of message signal (Hz)
+message_signal = np.sin(2 * np.pi * fm * t)
+
+# Pulse Train Parameters
+pulse_rate = 50  # pulses per second
+pulse_train = np.zeros_like(t)
+
+# Construct Pulse Train (rectangular pulses)
+pulse_width = int(fs / pulse_rate / 2)
+for i in range(0, len(t), int(fs / pulse_rate)):
+    pulse_train[i:i+pulse_width] = 1    
+
+# Natural Sampling
+nat_signal = message_signal * pulse_train
+
+# Reconstruction (Demodulation) Process
+sampled_signal = nat_signal[pulse_train == 1]
+
+# Create a time vector for the sampled points
+sample_times = t[pulse_train == 1]
+
+# Interpolation - Zero-Order Hold (just for visualization)
+reconstructed_signal = np.zeros_like(t)
+for i, time in enumerate(sample_times):
+    index = np.argmin(np.abs(t - time))
+    reconstructed_signal[index:index+pulse_width] = sampled_signal[i]
+
+# Low-pass Filter (optional, smoother reconstruction)
+def lowpass_filter(signal, cutoff, fs, order=5):
+    nyquist = 0.5 * fs
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return lfilter(b, a, signal)
+
+reconstructed_signal = lowpass_filter(reconstructed_signal, 10, fs)
+
+plt.figure(figsize=(14, 10))
+
+# Original Message Signal
+plt.subplot(4, 1, 1)
+plt.plot(t, message_signal, label='Original Message Signal')
+plt.legend()
+plt.grid(True)
+
+# Pulse Train
+plt.subplot(4, 1, 2)
+plt.plot(t, pulse_train, label='Pulse Train')
+plt.legend()
+plt.grid(True)
+
+# Natural Sampling
+plt.subplot(4, 1, 3)
+plt.plot(t, nat_signal, label='Natural Sampling')
+plt.legend()
+plt.grid(True)
+
+# Reconstructed Signal
+plt.subplot(4, 1, 4)
+plt.plot(t, reconstructed_signal, label='Reconstructed Message Signal', color='green')
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+```
+### Flat-top samplying
+```
+#Flat-top Sampling
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import butter, lfilter
+
+fs = 1000  # Sampling frequency (samples per second)
+T = 1      # Duration in seconds
+t = np.arange(0, T, 1/fs)  # Time vector
+fm = 5     # Frequency of message signal (Hz)
+message_signal = np.sin(2 * np.pi * fm * t)
+pulse_rate = 50  # pulses per second
+pulse_train_indices = np.arange(0, len(t), int(fs / pulse_rate))
+pulse_train = np.zeros_like(t)
+pulse_train[pulse_train_indices] = 1
+flat_top_signal = np.zeros_like(t)
+sample_times = t[pulse_train_indices]
+pulse_width_samples = int(fs / (2 * pulse_rate)) # Adjust pulse width as needed
+
+for i, sample_time in enumerate(sample_times):
+    index = np.argmin(np.abs(t - sample_time))
+    if index < len(message_signal):
+        sample_value = message_signal[index]
+        start_index = index
+        end_index = min(index + pulse_width_samples, len(t))
+        flat_top_signal[start_index:end_index] = sample_value
+
+def lowpass_filter(signal, cutoff, fs, order=5):
+    nyquist = 0.5 * fs
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return lfilter(b, a, signal)
+
+cutoff_freq = 2 * fm  # Nyquist rate or slightly higher
+reconstructed_signal = lowpass_filter(flat_top_signal, cutoff_freq, fs)
+
+plt.figure(figsize=(14, 10))
+
+plt.subplot(4, 1, 1)
+plt.plot(t, message_signal, label='Original Message Signal')
+plt.title('Original Message Signal')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+plt.legend()
+plt.grid(True)
+
+plt.subplot(4, 1, 2)
+plt.stem(t[pulse_train_indices], pulse_train[pulse_train_indices], basefmt=" ", label='Ideal Sampling Instances')
+plt.title('Ideal Sampling Instances')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+plt.legend()
+plt.grid(True)
+
+plt.subplot(4, 1, 3)
+plt.plot(t, flat_top_signal, label='Flat-Top Sampled Signal')
+plt.title('Flat-Top Sampled Signal')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.legend()
+
+plt.subplot(4, 1, 4)
+plt.plot(t, reconstructed_signal, label=f'Reconstructed Signal (Low-pass Filter, Cutoff={cutoff_freq} Hz)', color='green')
+plt.title('Reconstructed Signal')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+```
+# Output Waveform
+### Ideal samplying
+<img width="1189" height="989" alt="image" src="https://github.com/user-attachments/assets/97795e97-9e23-4e1d-be84-8b198e9477ff" />
+
+### Natural samplying
+<img width="1390" height="989" alt="image" src="https://github.com/user-attachments/assets/e9fbc941-0727-4ae4-9c1a-a97e640d8454" />
+
+### Flat-top samplying
+<img width="1398" height="990" alt="image" src="https://github.com/user-attachments/assets/79388709-2e27-4c36-979d-58bcbe94f530" />
 
 
-## Output
-
-<img width="580" height="280" alt="Screenshot 2026-02-07 091453" src="https://github.com/user-attachments/assets/92cf740e-e07c-4c12-b337-4735a91e2f49" />
-
-## Results:
-Thus, the python program for Huffman-Shannon_fano has been executed and verified successfully.
+# Results
+Thus, the python programs for ideal sampling, natural sampling and flat-top sampling has been executed and verified successfully.
